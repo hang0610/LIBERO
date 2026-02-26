@@ -148,14 +148,33 @@ python libero/lifelong/main.py seed=SEED \
                                policy=POLICY \
                                lifelong=ALGO
 
-# export CUDA_VISIBLE_DEVICES=1 && \
-export MUJOCO_EGL_DEVICE_ID=1 && \
+# bc_transformer + cnn encoder + seq_len=10
+export MUJOCO_EGL_DEVICE_ID=0 && \
+PYTHONPATH=. \
+python libero/lifelong/main.py seed=1 \
+                               benchmark_name=libero_spatial \
+                               policy=bc_transformer_policy \
+                               lifelong=multitask \
+                               policy/image_encoder=film_patch_encoder
+
+# bc_rnn + cnn encoder + seq_len=10
+export MUJOCO_EGL_DEVICE_ID=0 && \
 PYTHONPATH=. \
 python libero/lifelong/main.py seed=1 \
                                benchmark_name=libero_spatial \
                                policy=bc_rnn_policy \
                                lifelong=multitask \
                                policy/image_encoder=film_patch_encoder
+
+# bc_rnn + cnn encoder + seq_len=1
+export MUJOCO_EGL_DEVICE_ID=0 && \
+PYTHONPATH=. \
+python libero/lifelong/main.py seed=1 \
+                               benchmark_name=libero_spatial \
+                               policy=bc_rnn_policy \
+                               lifelong=multitask \
+                               policy/image_encoder=film_patch_encoder \
+                               data.seq_len=1
 
 ```
 Please see the documentation for the details of reproducing the study results.
