@@ -147,6 +147,16 @@ python libero/lifelong/main.py seed=SEED \
                                benchmark_name=BENCHMARK \
                                policy=POLICY \
                                lifelong=ALGO
+
+# export CUDA_VISIBLE_DEVICES=1 && \
+export MUJOCO_EGL_DEVICE_ID=1 && \
+PYTHONPATH=. \
+python libero/lifelong/main.py seed=1 \
+                               benchmark_name=libero_spatial \
+                               policy=bc_rnn_policy \
+                               lifelong=multitask \
+                               policy/image_encoder=film_patch_encoder
+
 ```
 Please see the documentation for the details of reproducing the study results.
 

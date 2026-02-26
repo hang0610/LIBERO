@@ -58,6 +58,75 @@ class PatchEncoder(nn.Module):
         return x
 
 
+class FiLMPatchEncoder(nn.Module):
+    """
+    A lightweight CNN encoder with FiLM language conditioning.
+    Same interface as ResnetEncoder: forward(x, langs=None) -> (B, output_size).
+    """
+
+    def __init__(
+        self,
+        input_shape,
+        output_size=64,
+        patch_size=[8, 8],
+        no_patch_embed_bias=False,
+        language_dim=768,
+        language_fusion="film",
+    ):
+        super().__init__()
+        C, H, W = input_shape
+        self.language_fusion = language_fusion
+
+        self.conv1 = nn.Conv2d(
+            C, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False
+        )
+        self.bn1 = nn.BatchNorm2d(64)
+
+        mid_channels = 128
+        self.conv2 = nn.Conv2d(64, mid_channels, kernel_size=3, stride=2, padding=1, bias=False)
+        self.bn2 = nn.BatchNorm2d(mid_channels)
+
+        embed_channels = 256
+        self.proj = nn.Conv2d(
+            mid_channels,
+            embed_channels,
+            kernel_size=patch_size,
+            stride=patch_size,
+            bias=not no_patch_embed_bias,
+        )
+        self.bn3 = nn.BatchNorm2d(embed_channels)
+
+        if language_fusion != "none":
+            self.lang_proj1 = nn.Linear(language_dim, 64 * 2)
+            self.lang_proj2 = nn.Linear(language_dim, mid_channels * 2)
+            self.lang_proj3 = nn.Linear(language_dim, embed_channels * 2)
+
+        x = torch.zeros(1, C, H, W)
+        y = self.bn3(self.proj(self.bn2(self.conv2(self.bn1(self.conv1(x))))))
+        self.projection_layer = SpatialProjection(y.shape[1:], output_size)
+
+    def _film(self, h, lang_proj, langs):
+        if langs is not None and self.language_fusion != "none":
+            B, C, H, W = h.shape
+            beta, gamma = torch.split(
+                lang_proj(langs).reshape(B, C * 2, 1, 1), [C, C], 1
+            )
+            h = (1 + gamma) * h + beta
+        return h
+
+    def forward(self, x, langs=None):
+        h = F.relu(self.bn1(self.conv1(x)), inplace=True)
+        h = self._film(h, self.lang_proj1, langs)
+
+        h = F.relu(self.bn2(self.conv2(h)), inplace=True)
+        h = self._film(h, self.lang_proj2, langs)
+
+        h = F.relu(self.bn3(self.proj(h)), inplace=True)
+        h = self._film(h, self.lang_proj3, langs)
+
+        return self.projection_layer(h)
+
+
 class SpatialSoftmax(nn.Module):
     """
     The spatial softmax layer (https://rll.berkeley.edu/dsae/dsae.pdf)
